@@ -674,10 +674,19 @@ class TestAdvertiseAddress(ironic_agent_base.IronicAgentTest):
                        autospec=True)
     @mock.patch('ironic_python_agent.hardware_managers.cna._detect_cna_card',
                 autospec=True)
-    def test_with_network_interface(self, mock_cna, mock_get_ipv4, mock_exec,
-                                    mock_gethostbyname):
+    @mock.patch(
+        'ironic_python_agent.hardware_managers.arcconf._detect_raid_card',
+        autospec=True)
+    @mock.patch(
+        'ironic_python_agent.hardware_managers.mega._detect_raid_card',
+        autospec=True)
+    def test_with_network_interface(self, mock_arcconf, mock_mega,
+                                    mock_cna, mock_get_ipv4,
+                                    mock_exec, mock_gethostbyname):
         self.agent.network_interface = 'em1'
         mock_get_ipv4.return_value = '1.2.3.4'
+        mock_arcconf.return_value = False
+        mock_mega.return_value = False
         mock_cna.return_value = False
 
         self.agent.set_agent_advertise_addr()
@@ -692,10 +701,19 @@ class TestAdvertiseAddress(ironic_agent_base.IronicAgentTest):
                        autospec=True)
     @mock.patch('ironic_python_agent.hardware_managers.cna._detect_cna_card',
                 autospec=True)
-    def test_with_network_interface_failed(self, mock_cna, mock_get_ipv4,
+    @mock.patch(
+        'ironic_python_agent.hardware_managers.arcconf._detect_raid_card',
+        autospec=True)
+    @mock.patch(
+        'ironic_python_agent.hardware_managers.mega._detect_raid_card',
+        autospec=True)
+    def test_with_network_interface_failed(self, mock_arcconf, mock_mega,
+                                           mock_cna, mock_get_ipv4,
                                            mock_exec, mock_gethostbyname):
         self.agent.network_interface = 'em1'
         mock_get_ipv4.return_value = None
+        mock_arcconf.return_value = False
+        mock_mega.return_value = False
         mock_cna.return_value = False
 
         self.assertRaises(errors.LookupAgentIPError,
