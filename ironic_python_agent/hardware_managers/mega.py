@@ -91,13 +91,13 @@ class MegaHardwareManager(hardware.GenericHardwareManager):
         LOG.info('Begin to create configuration')
         ld_num = 0
         for vdriver in target_raid_config_list:
-            size = None
+            size = 'MAX'
             raid_level = None
             physical_disks = None
             controller = None
 
-            if 'size_gb' in vdriver:
-                size = vdriver['size_gb']
+            if 'size_gb' in vdriver and vdriver['size_gb'] != 'MAX':
+                size = str(vdriver['size_gb'] * 1024)
             if 'raid_level' in vdriver:
                 raid_level = vdriver['raid_level']
             if 'physical_disks' in vdriver:

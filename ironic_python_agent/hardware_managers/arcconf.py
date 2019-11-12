@@ -145,8 +145,8 @@ class ArcconfHardwareManager(hardware.GenericHardwareManager):
             physical_disks = None
             controller = 1
 
-            if 'size_gb' in vdriver:
-                size = vdriver['size_gb']
+            if 'size_gb' in vdriver and vdriver['size_gb'] != 'MAX':
+                size = str(vdriver['size_gb'] * 1024)
             if 'raid_level' in vdriver:
                 raid_level = vdriver['raid_level']
             if 'physical_disks' in vdriver:
@@ -178,7 +178,7 @@ class ArcconfHardwareManager(hardware.GenericHardwareManager):
                                          '|grep -i size'), shell=True)
             ld_size = report1.split('\n')[1].split()[-2]
             target_raid_config['logical_disks'][ld_num]['size_gb'] = int(
-                ld_size) / 1024
+                int(ld_size) / 1024)
             ld_num += 1
             if raid_level is not None and physical_disks \
                     is not None and controller is not None:
