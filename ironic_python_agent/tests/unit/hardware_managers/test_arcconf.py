@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import mock
+from mock import call
 
 from ironic_python_agent import hardware
 from ironic_python_agent.hardware_managers import arcconf
@@ -143,6 +144,19 @@ PHYSICAL_DISKS_TEMLATE = ('\nControllers found: 1\n----------------'
                           'SMART Warning Count                : 0\n '
                           '\nCommand completed successfully.\n')
 
+CREATE_DISKS_OUTPUT = ('Controllers found: 1\n\n'
+                       'Creating logical device:'
+                       ' LogicalDrv 0\n\nCommand'
+                       ' completed successfully.')
+
+LOGIC_DISKS_SIZE_TEMPLATE = ('   Block Size of member '
+                             'drives              : 512'
+                             ' Bytes\n   Size          '
+                             '                         '
+                             '  : 511990 MB\n   '
+                             'Stripe-unit size         '
+                             '                : 256 KB')
+
 
 class TestArcconfHardwareManager(base.IronicAgentTest):
     def setUp(self):
@@ -178,6 +192,96 @@ class TestArcconfHardwareManager(base.IronicAgentTest):
         expected_controllers = ['1']
         actual_controllers = arcconf._find_controllers()
         self.assertEqual(expected_controllers, actual_controllers)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_create_configration_size_int(self, mock_execute):
+        self.node['target_raid_config'] = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": 500,
+                    "raid_level": "1",
+                    "controller": "1",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "0 0",
+                        "0 1"
+                    ]
+                }
+            ]
+        }
+        mock_execute.side_effect = [(CREATE_DISKS_OUTPUT, ''),
+                                    (LOGIC_DISKS_SIZE_TEMPLATE, '')]
+        expected_raid = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": 499,
+                    "raid_level": "1",
+                    "controller": "1",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "0 0",
+                        "0 1"
+                    ]
+                }
+            ]
+        }
+        actual_raid = self.hardware.create_configuration(self.node, [])
+        self.assertEqual(expected_raid, actual_raid)
+        calls = [call('/opt/arcconf/cmdline/arcconf create 1 '
+                      'LOGICALDRIVE 512000 1 0 0 0 1 noprompt',
+                      shell=True),
+                 call('/opt/arcconf/cmdline/arcconf getconfig'
+                      ' 1 ld 0|grep -i size', shell=True)]
+        mock_execute.assert_has_calls(calls)
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_create_configration_size_MAX(self, mock_execute):
+        self.node['target_raid_config'] = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": "MAX",
+                    "raid_level": "1",
+                    "controller": "1",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "0 0",
+                        "0 1"
+                    ]
+                }
+            ]
+        }
+        mock_execute.side_effect = [(CREATE_DISKS_OUTPUT, ''),
+                                    (LOGIC_DISKS_SIZE_TEMPLATE, '')]
+        expected_raid = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": 499,
+                    "raid_level": "1",
+                    "controller": "1",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "0 0",
+                        "0 1"
+                    ]
+                }
+            ]
+        }
+        actual_raid = self.hardware.create_configuration(self.node, [])
+        self.assertEqual(expected_raid, actual_raid)
+        calls = [call('/opt/arcconf/cmdline/arcconf create 1 '
+                      'LOGICALDRIVE MAX 1 0 0 0 1 noprompt',
+                      shell=True),
+                 call('/opt/arcconf/cmdline/arcconf getconfig'
+                      ' 1 ld 0|grep -i size', shell=True)]
+        mock_execute.assert_has_calls(calls)
 
     @mock.patch(
         'ironic_python_agent.hardware_managers.arcconf._detect_raid_card',
