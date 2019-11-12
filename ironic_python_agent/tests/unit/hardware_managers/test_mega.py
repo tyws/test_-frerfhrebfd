@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import mock
+from mock import call
 
 from ironic_python_agent import hardware
 from ironic_python_agent.hardware_managers import mega
@@ -36,6 +37,15 @@ PHYSICAL_DISKS_TEMLATE = ('Adapter #0\nEnclosure Device ID: 8\n'
                           'BTYF84820BT4960CGN  INTEL SSDSC2KB960G8'
                           '                     XCV10100\n')
 
+CREATE_DISKS_OUTPUT = ('\nAdapter 0: Created VD 0\n'
+                       '\nAdapter 0: Configured the'
+                       ' Adapter!!\n\nExit Code: 0x00')
+
+LOGIC_DISKS_SIZE_TEMPLATE = ('Size                : '
+                             '3.637 TB\nSector Size '
+                             '        : 512\nStrip '
+                             'Size          : 256 KB')
+
 
 class TestMegaHardwareManager(base.IronicAgentTest):
     def setUp(self):
@@ -53,6 +63,50 @@ class TestMegaHardwareManager(base.IronicAgentTest):
     def test_detect_raid_card_no_mega(self, mock_execute):
         mock_execute.return_value = ('Controller Count: 0.\n', '')
         self.assertFalse(mega._detect_raid_card())
+
+    @mock.patch.object(utils, 'execute', autospec=True)
+    def test_create_configration(self, mock_execute):
+        self.node['target_raid_config'] = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": "MAX",
+                    "raid_level": "1",
+                    "controller": "0",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "8:0",
+                        "8:2"
+                    ]
+                }
+            ]
+        }
+        mock_execute.side_effect = [(CREATE_DISKS_OUTPUT, ''),
+                                    (LOGIC_DISKS_SIZE_TEMPLATE, '')]
+        expected_raid = {
+            "logical_disks":
+            [
+                {
+                    "size_gb": 3724,
+                    "raid_level": "1",
+                    "controller": "0",
+                    "volume_name": "RAID1_1",
+                    "is_root_volume": True,
+                    "physical_disks": [
+                        "8:0",
+                        "8:2"
+                    ]
+                }
+            ]
+        }
+        actual_raid = self.hardware.create_configuration(self.node, [])
+        self.assertEqual(expected_raid, actual_raid)
+        calls = [call('/opt/MegaRAID/MegaCli/MegaCli64 -CfgLdAdd -r1'
+                      '[8:0,8:2] -a0', shell=True),
+                 call('/opt/MegaRAID/MegaCli/MegaCli64 -LDInfo -L0 '
+                      '-aAll | grep -i size', shell=True)]
+        mock_execute.assert_has_calls(calls)
 
     @mock.patch(
         'ironic_python_agent.hardware_managers.mega._detect_raid_card',
