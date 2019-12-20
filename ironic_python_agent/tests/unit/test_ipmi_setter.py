@@ -12,6 +12,7 @@
 
 import mock
 
+from ironic_python_agent import errors
 from ironic_python_agent import ipmi_setter
 from ironic_python_agent.tests.unit import base
 from ironic_python_agent import utils
@@ -90,3 +91,114 @@ class TestIpmiSetter(base.IronicAgentTest):
         ipmi_setter.set_bm_ipmi(self.data, None)
         mock_exec.assert_not_called()
         mock_post.assert_not_called()
+
+    @mock.patch("ironic_python_agent.utils.execute", autospec=True)
+    @mock.patch("requests.post", autospec=True)
+    @mock.patch("requests.get", autospec=True)
+    @mock.patch("ironic_python_agent.hardware.dispatch_to_managers",
+                autospec=True)
+    def test_set_new_bmc_address_retry(self, mock_manager, mock_get,
+                                       mock_post, mock_exec):
+        mock_manager.side_effect = [
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0"
+        ]
+
+        failures = utils.AccumulatedFailures(exc_class=errors.InspectionError)
+        mock_json = mock.Mock()
+        mock_json.json = mock.Mock(
+            return_value={
+                "ip_address": "192.168.2.20",
+                "netmask": "255.255.255.0",
+                "gateway": "192.168.2.254"
+
+            })
+        mock_get.side_effect = [
+            Exception(),
+            Exception(),
+            Exception(),
+            mock_json
+        ]
+        ipmi_setter.set_bm_ipmi(self.data, failures, retry=3)
+        mock_get.assert_has_calls([
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn')])
+        mock_post.assert_called_once_with('1.1.1.1/v1/bmc/fake_sn',
+                                          json={'has_set': True})
+        failures.raise_if_needed()
+
+    @mock.patch("ironic_python_agent.utils.execute", autospec=True)
+    @mock.patch("requests.post", autospec=True)
+    @mock.patch("requests.get", autospec=True)
+    @mock.patch("ironic_python_agent.hardware.dispatch_to_managers",
+                autospec=True)
+    def test_set_new_bmc_address_retry_failed(self, mock_manager, mock_get,
+                                              mock_post, mock_exec):
+        mock_manager.side_effect = [
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0",
+            mock.Mock(
+                product_name='fake_prouect',
+                serial_number="fake_sn",
+                manufacturer="fake_manufacturer"
+            ),
+            "0.0.0.0"
+        ]
+
+        failures = utils.AccumulatedFailures(exc_class=errors.InspectionError)
+        mock_json = mock.Mock()
+        mock_json.json = mock.Mock(
+            return_value={
+                "ip_address": "192.168.2.20",
+                "netmask": "255.255.255.0",
+                "gateway": "192.168.2.254"
+
+            })
+        mock_get.side_effect = Exception()
+        ipmi_setter.set_bm_ipmi(self.data, failures, retry=3)
+        mock_get.assert_has_calls([
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn'),
+            mock.call('1.1.1.1/v1/bmc/fake_sn')])
+        self.assertRaises(errors.InspectionError, failures.raise_if_needed)

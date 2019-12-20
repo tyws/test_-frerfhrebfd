@@ -10,15 +10,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from oslo_concurrency import processutils
+import time
+
 from oslo_config import cfg
+from oslo_log import log
 import requests
 
 from ironic_python_agent import hardware
 from ironic_python_agent import utils
 
+LOG = log.getLogger(__name__)
 
-def set_bm_ipmi(data, failures):
+
+def set_bm_ipmi(data, failures, retry=3):
     """Set baremetal node's ipmi info.
 
     make sure that this collector be placed first among
@@ -26,6 +30,7 @@ def set_bm_ipmi(data, failures):
 
     :param data: mutable dict that we'll send to inspector
     :param failures: AccumulatedFailures object
+    :param retry: number of retries when failure
     """
     data['set_ipmi'] = {'result': False}
     try:
@@ -60,6 +65,11 @@ def set_bm_ipmi(data, failures):
             )
             data['set_ipmi']['result'] = True
 
-    except (processutils.ProcessExecutionError, OSError) as exc:
-        failures.add('failed to run ipmitools: %s', exc)
-        return
+    except Exception as exc:
+        if retry > 0:
+            LOG.warning('setting ipmi address failed, retry 60s later, '
+                        '%s times left', retry)
+            time.sleep(60)
+            set_bm_ipmi(data, failures, retry - 1)
+        else:
+            failures.add('setting ipmi address failed: %s', exc)
