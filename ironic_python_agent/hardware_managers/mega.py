@@ -28,18 +28,17 @@ JBOD_ON = '1'
 JBOD_OFF = '0'
 
 MEGACLI = "/opt/MegaRAID/MegaCli/MegaCli64"
+UNIT = ['KB', 'MB', 'GB', 'TB', 'PB']
 
 
 class PhysicalDisk(encoding.SerializableComparable):
-    serializable_fields = ('Enclosure_Device_Id',
-                           'Slot_Id', 'Type', 'Total_Size', 'Model')
+    serializable_fields = ('id', 'controller_id', 'type', 'size')
 
-    def __init__(self, Enclosure_Device_Id, Slot_Id, Type, Total_Size, Model):
-        self.Enclosure_Device_Id = Enclosure_Device_Id
-        self.Slot_Id = Slot_Id
-        self.Type = Type
-        self.Total_Size = Total_Size
-        self.Model = Model
+    def __init__(self, ID, ControllerID, Type, Size):
+        self.id = ID
+        self.controller_id = ControllerID
+        self.type = Type
+        self.size = Size
 
 
 def _detect_raid_card():
@@ -57,6 +56,25 @@ def _detect_raid_card():
         return False
 
 
+def _change_disk_unit(TotalSize):
+    val = float(TotalSize.split()[0])
+    uni = TotalSize.split()[1].upper()
+    uni_idx = 1
+    for i in range(0, 4):
+        if uni == UNIT[i]:
+            uni_idx = i
+            break
+    if uni_idx < 2:
+        while uni_idx < 2:
+            val /= 1024
+            uni_idx += 1
+    elif uni_idx > 2:
+        while uni_idx < 2:
+            val /= 1024
+            uni_idx -= 1
+    return str(round(val, 2)) + ' ' + UNIT[uni_idx]
+
+
 class MegaHardwareManager(hardware.GenericHardwareManager):
     HARDWARE_MANAGER_NAME = 'MegaHardwareManager'
     HARDWARE_MANAGER_VERSION = '1.0'
@@ -68,20 +86,6 @@ class MegaHardwareManager(hardware.GenericHardwareManager):
         else:
             LOG.debug('No LSI Raid card found')
             return hardware.HardwareSupport.NONE
-
-    def get_clean_steps(self, node, ports):
-        return [
-            {
-                'step': 'create_configuration',
-                'priority': 0,
-                'interface': 'raid',
-            },
-            {
-                'step': 'delete_configuration',
-                'priority': 0,
-                'interface': 'raid',
-            }
-        ]
 
     def create_configuration(self, node, ports):
 
@@ -208,7 +212,7 @@ class MegaHardwareManager(hardware.GenericHardwareManager):
                         i = j + 1
                         break
                     elif lines[j].find("Adapter") == -1:
-                        device['Adapter_id'] = adapter
+                        device['Adapter_Id'] = adapter
                         # increment i by 1 avoid endless looping
                         i = j + 1
                         # Enclosure & Slot are required
@@ -236,12 +240,47 @@ class MegaHardwareManager(hardware.GenericHardwareManager):
                             if re.search(r'SSD|Micron_5200', copy['Model']) \
                                     is not None:
                                 copy['Type'] = 'SSD'
-                            devices.append(PhysicalDisk(
-                                Enclosure_Device_Id=copy[
-                                    'Enclosure_Device_Id'],
-                                Slot_Id=copy['Slot_Id'],
-                                Type=copy['Type'],
-                                Total_Size=copy['Total_Size'],
-                                Model=copy['Model']))
+                            ID = copy['Enclosure_Device_Id'] + \
+                                ":" + copy['Slot_Id']
+                            Controller = copy['Adapter_Id']
+                            Type = copy['Type']
+                            Size = _change_disk_unit(copy['Total_Size'])
+                            devices.append(PhysicalDisk(ID=ID,
+                                                        ControllerID=Controller,
+                                                        Type=Type,
+                                                        Size=Size))
 
         return devices
+
+    def get_clean_steps(self, node, ports):
+        return [
+            {
+                'step': 'erase_devices',
+                'priority': 0,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': True
+            },
+            {
+                'step': 'erase_devices_metadata',
+                'priority': 99,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': True
+            },
+            {
+                'step': 'delete_configuration',
+                'priority': 20,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': False
+            },
+            {
+                'step': 'create_configuration',
+                'priority': 15,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': False
+            }
+        ]
+

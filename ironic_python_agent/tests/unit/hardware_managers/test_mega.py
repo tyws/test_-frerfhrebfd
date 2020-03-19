@@ -22,17 +22,17 @@ from ironic_python_agent import utils
 
 PHYSICAL_DISKS_TEMLATE = ('Adapter #0\nEnclosure Device ID: 8\n'
                           'Slot Number: 0\nPD Type: SATA\nRaw '
-                          'Size: 894.252 GB [0x6fc81ab0 Sectors]\n'
+                          'Size: 894.25 GB [0x6fc81ab0 Sectors]\n'
                           'Inquiry Data: BTYF84730BXY960CGN'
                           '  INTEL SSDSC2KB960G8              '
                           '       XCV10100\nEnclosure Device ID'
                           ': 8\nSlot Number: 1\nPD Type: SATA\n'
-                          'Raw Size: 894.252 GB [0x6fc81ab0 '
+                          'Raw Size: 894.25 GB [0x6fc81ab0 '
                           'Sectors]\nInquiry Data: '
                           'BTYF84820BNW960CGN  INTEL SSDSC2KB960G8'
                           '                     XCV10100\n'
                           'Enclosure Device ID: 8\nSlot Number: '
-                          '2\nPD Type: SATA\nRaw Size: 894.252 GB '
+                          '2\nPD Type: SATA\nRaw Size: 894.25 GB '
                           '[0x6fc81ab0 Sectors]\nInquiry Data: '
                           'BTYF84820BT4960CGN  INTEL SSDSC2KB960G8'
                           '                     XCV10100\n')
@@ -131,32 +131,25 @@ class TestMegaHardwareManager(base.IronicAgentTest):
         mock_execute.return_value = (PHYSICAL_DISKS_TEMLATE, '')
         expected_devices = [
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='0',
+                ID='8:0',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84730BXY960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='1',
+                ID='8:1',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84820BNW960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='2',
+                ID='8:2',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84820BT4960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
         ]
         devices = self.hardware.list_physical_devices()
         self.assertEqual(3, len(devices))
         for expected, device in zip(expected_devices, devices):
-            for attr in ['Enclosure_Device_Id',
-                         'Slot_Id', 'Type', 'Total_Size', 'Model']:
+            for attr in ['id', 'controller_id', 'type', 'size']:
                 self.assertEqual(getattr(expected, attr),
                                  getattr(device, attr))
 
@@ -186,26 +179,20 @@ class TestMegaHardwareManager(base.IronicAgentTest):
         self.hardware.list_physical_devices = mock.Mock()
         self.hardware.list_physical_devices.return_value = [
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='0',
+                ID='8:0',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84730BXY960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='1',
+                ID='8:1',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84820BNW960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
             mega.PhysicalDisk(
-                Enclosure_Device_Id='8',
-                Slot_Id='2',
+                ID='8:2',
+                ControllerID='0',
                 Type='SSD',
-                Total_Size='894.252 GB',
-                Model=('BTYF84820BT4960CGN  INTEL SSDSC2KB960G8  '
-                           '                   XCV10100')),
+                Size='894.25 GB'),
         ]
 
         self.hardware.get_boot_info = mock.Mock()

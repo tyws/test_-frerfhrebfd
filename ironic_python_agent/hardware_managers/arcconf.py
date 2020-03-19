@@ -23,54 +23,17 @@ LOG = log.getLogger()
 CONF = cfg.CONF
 
 ARCCONF = "/opt/arcconf/cmdline/arcconf"
+UNIT = ['KB', 'MB', 'GB', 'TB', 'PB']
 
 
 class PhysicalDisk(encoding.SerializableComparable):
-    serializable_fields = ('state', 'block_size', 'supported',
-                           'programmed_max_speed', 'transfer_speed',
-                           'reported_channel_and_device',
-                           'reported_location', 'reported_esd',
-                           'vendor', 'model', 'firmware',
-                           'serial_number', 'world_wide_name',
-                           'reserved_size', 'used_size',
-                           'unused_size', 'total_size', 'write_cache',
-                           'fru', 's_m_a_r_t',
-                           's_m_a_r_t_warnings', 'power_state',
-                           'supported_power_states',
-                           'ssd', 'temperature')
+    serializable_fields = ('id', 'controller_id', 'type', 'size')
 
-    def __init__(self, state, block_size, supported, programmed_max_speed,
-                 transfer_speed, reported_channel_and_device,
-                 reported_location, reported_esd, vendor, model,
-                 firmware, serial_number, world_wide_name,
-                 reserved_size, used_size, unused_size, total_size,
-                 write_cache, fru, s_m_a_r_t, s_m_a_r_t_warnings,
-                 power_state, supported_power_states, ssd, temperature):
-        self.state = state
-        self.block_size = block_size
-        self.supported = supported
-        self.programmed_max_speed = programmed_max_speed
-        self.transfer_speed = transfer_speed
-        self.reported_channel_and_device = reported_channel_and_device
-        self.reported_location = reported_location
-        self.reported_esd = reported_esd
-        self.vendor = vendor
-        self.model = model
-        self.firmware = firmware
-        self.serial_number = serial_number
-        self.world_wide_name = world_wide_name
-        self.reserved_size = reserved_size
-        self.used_size = used_size
-        self.unused_size = unused_size
-        self.total_size = total_size
-        self.write_cache = write_cache
-        self.fru = fru
-        self.s_m_a_r_t = s_m_a_r_t
-        self.s_m_a_r_t_warnings = s_m_a_r_t_warnings
-        self.power_state = power_state
-        self.supported_power_states = supported_power_states
-        self.ssd = ssd
-        self.temperature = temperature
+    def __init__(self, ID, ControllerID, Type, Size):
+        self.id = ID
+        self.controller_id = ControllerID
+        self.type = Type
+        self.size = Size
 
 
 def _detect_raid_card():
@@ -99,6 +62,25 @@ def _find_controllers():
 
     LOG.info('Controllers found:%s', str(controllers))
     return controllers
+
+
+def _change_disk_unit(TotalSize):
+    val = float(TotalSize.split()[0])
+    uni = TotalSize.split()[1].upper()
+    uni_idx = 1
+    for i in range(0, 4):
+        if uni == UNIT[i]:
+            uni_idx = i
+            break
+    if uni_idx < 2:
+        while uni_idx < 2:
+            val /= 1024
+            uni_idx += 1
+    elif uni_idx > 2:
+        while uni_idx < 2:
+            val /= 1024
+            uni_idx -= 1
+    return str(round(val, 2)) + ' ' + UNIT[uni_idx]
 
 
 class ArcconfHardwareManager(hardware.GenericHardwareManager):
@@ -173,9 +155,9 @@ class ArcconfHardwareManager(hardware.GenericHardwareManager):
             report, _e = utils.execute(cmd, shell=True)
             ld_num1 = report.split('\n')[2].split()[-1]
             report1, _e = utils.execute(('%s getconfig ' %
-                                         ARCCONF + controller +
-                                         ' ld ' + ld_num1 +
-                                         '|grep -i size'), shell=True)
+                                         ARCCONF + controller
+                                         + ' ld ' + ld_num1
+                                         + '|grep -i size'), shell=True)
             ld_size = report1.split('\n')[1].split()[-2]
             target_raid_config['logical_disks'][ld_num]['size_gb'] = int(
                 int(ld_size) / 1024)
@@ -225,37 +207,51 @@ class ArcconfHardwareManager(hardware.GenericHardwareManager):
                         device[key.strip()] = val.strip()
                         i += 1
 
+                    ID = device['Reported Channel,Device(T:L)'].split('(')[0]
+                    ID = ID.replace(',', ' ')
+                    if device['SSD'].lower() == 'yes':
+                        Type = 'SSD'
+                    else:
+                        Type = device['Transfer Speed'].split()[0].upper()
+                    Size = _change_disk_unit(device['Total Size'])
                     devices.append(
-                        PhysicalDisk(state=device['State'],
-                                     block_size=device['Block Size'],
-                                     supported=device['Supported'],
-                                     programmed_max_speed=device[
-                            'Programmed Max Speed'],
-                            transfer_speed=device['Transfer Speed'],
-                            reported_channel_and_device=device[
-                                         'Reported Channel,Device(T:L)'],
-                            reported_location=device['Reported Location'],
-                            reported_esd=device['Reported ESD(T:L)'],
-                            vendor=device['Vendor'],
-                            model=device['Model'],
-                            firmware=device['Firmware'],
-                            serial_number=device['Serial number'],
-                            world_wide_name=device['World-wide name'],
-                            reserved_size=device['Reserved Size'],
-                            used_size=device['Used Size'],
-                            unused_size=device['Unused Size'],
-                            total_size=device['Total Size'],
-                            write_cache=device['Write Cache'],
-                            fru=device['FRU'],
-                            s_m_a_r_t=device['S.M.A.R.T.'],
-                            s_m_a_r_t_warnings=device[
-                            'S.M.A.R.T. warnings'],
-                            power_state=device['Power State'],
-                            supported_power_states=device[
-                            'Supported Power States'],
-                            ssd=device['SSD'],
-                            temperature=device['Temperature']))
+                        PhysicalDisk(ID=ID,
+                                     ControllerID=controller,
+                                     Type=Type,
+                                     Size=Size))
                 else:
                     i += 1
                     continue
         return devices
+
+    def get_clean_steps(self, node, ports):
+        return [
+            {
+                'step': 'erase_devices',
+                'priority': 0,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': True
+            },
+            {
+                'step': 'erase_devices_metadata',
+                'priority': 99,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': True
+            },
+            {
+                'step': 'delete_configuration',
+                'priority': 20,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': False
+            },
+            {
+                'step': 'create_configuration',
+                'priority': 15,
+                'interface': 'deploy',
+                'reboot_requested': False,
+                'abortable': False
+            }
+        ]

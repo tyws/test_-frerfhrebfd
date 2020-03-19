@@ -309,75 +309,18 @@ class TestArcconfHardwareManager(base.IronicAgentTest):
         mock_execute.return_value = (PHYSICAL_DISKS_TEMLATE, '')
         mock_find_controllers.return_value = ['1']
         expected_devices = [
-            arcconf.PhysicalDisk(state='Online',
-                                 block_size='512 Bytes',
-                                 supported='Yes',
-                                 programmed_max_speed='SAS 12.0 Gb/s',
-                                 transfer_speed='SAS 12.0 Gb/s',
-                                 reported_channel_and_device='0,0(0:0)',
-                                 reported_location=('Enclosure 0, '
-                                                    'Slot 0(Connector 0)'),
-                                 reported_esd='2,0(0:0)',
-                                 vendor='HGST',
-                                 model='HUC101860CSS200',
-                                 firmware='AD02',
-                                 serial_number='0BH68ZVD',
-                                 world_wide_name='5000CCA07D43CDFF',
-                                 reserved_size='956312 KB',
-                                 used_size='571392 MB',
-                                 unused_size='64 KB',
-                                 total_size='572325 MB',
-                                 write_cache='Enabled (write-back)',
-                                 fru='None',
-                                 s_m_a_r_t='No',
-                                 s_m_a_r_t_warnings='0',
-                                 power_state='Full rpm',
-                                 supported_power_states=('Full rpm'
-                                                         ',Powered off'),
-                                 ssd='No',
-                                 temperature='46 C/ 114 F'),
-            arcconf.PhysicalDisk(state='Online',
-                                 block_size='512 Bytes',
-                                 supported='Yes',
-                                 programmed_max_speed='SAS 12.0 Gb/s',
-                                 transfer_speed='SAS 12.0 Gb/s',
-                                 reported_channel_and_device='0,1(1:0)',
-                                 reported_location=('Enclosure 0, '
-                                                    'Slot 1(Connector 0)'),
-                                 reported_esd='2,0(0:0)',
-                                 vendor='HGST',
-                                 model='HUC101860CSS200',
-                                 firmware='AD02',
-                                 serial_number='0BH67UPD',
-                                 world_wide_name='5000CCA07D43BC7B',
-                                 reserved_size='956312 KB',
-                                 used_size='571392 MB',
-                                 unused_size='64 KB',
-                                 total_size='572325 MB',
-                                 write_cache='Enabled (write-back)',
-                                 fru='None',
-                                 s_m_a_r_t='No',
-                                 s_m_a_r_t_warnings='0',
-                                 power_state='Full rpm',
-                                 supported_power_states=('Full rpm'
-                                                         ',Powered off'),
-                                 ssd='No',
-                                 temperature='45 C/ 113 F')]
+            arcconf.PhysicalDisk(ID='0 0',
+                                 ControllerID='1',
+                                 Type='SAS',
+                                 Size='558.91 GB'),
+            arcconf.PhysicalDisk(ID='0 1',
+                                 ControllerID='1',
+                                 Type='SAS',
+                                 Size='558.91 GB')]
         devices = self.hardware.list_physical_devices()
         self.assertEqual(2, len(devices))
         for expected, device in zip(expected_devices, devices):
-            for attr in ['state', 'block_size', 'supported',
-                         'programmed_max_speed', 'transfer_speed',
-                         'reported_channel_and_device',
-                         'reported_location', 'reported_esd',
-                         'vendor', 'model', 'firmware',
-                         'serial_number', 'world_wide_name',
-                         'reserved_size', 'used_size',
-                         'unused_size', 'total_size', 'write_cache',
-                         'fru', 's_m_a_r_t',
-                         's_m_a_r_t_warnings', 'power_state',
-                         'supported_power_states',
-                         'ssd', 'temperature']:
+            for attr in ['id', 'controller_id', 'type', 'size']:
                 self.assertEqual(getattr(expected, attr),
                                  getattr(device, attr))
 
@@ -406,60 +349,14 @@ class TestArcconfHardwareManager(base.IronicAgentTest):
 
         self.hardware.list_physical_devices = mock.Mock()
         self.hardware.list_physical_devices.return_value = [
-            arcconf.PhysicalDisk(state='Online',
-                                 block_size='512 Bytes',
-                                 supported='Yes',
-                                 programmed_max_speed='SAS 12.0 Gb/s',
-                                 transfer_speed='SAS 12.0 Gb/s',
-                                 reported_channel_and_device='0,0(0:0)',
-                                 reported_location='Enclosure 0, \
-                                 Slot 0(Connector 0)',
-                                 reported_esd='2,0(0:0)',
-                                 vendor='HGST',
-                                 model='HUC101860CSS200',
-                                 firmware='AD02',
-                                 serial_number='0BH68ZVD',
-                                 world_wide_name='5000CCA07D43CDFF',
-                                 reserved_size='956312 KB',
-                                 used_size='571392 MB',
-                                 unused_size='64 KB',
-                                 total_size='572325 MB',
-                                 write_cache='Enabled (write-back)',
-                                 fru='None',
-                                 s_m_a_r_t='No',
-                                 s_m_a_r_t_warnings='0',
-                                 power_state='Full rpm',
-                                 supported_power_states='Full rpm\
-                                 ,Powered off',
-                                 ssd='No',
-                                 temperature='46 C/ 114 F'),
-            arcconf.PhysicalDisk(state='Online',
-                                 block_size='512 Bytes',
-                                 supported='Yes',
-                                 programmed_max_speed='SAS 12.0 Gb/s',
-                                 transfer_speed='SAS 12.0 Gb/s',
-                                 reported_channel_and_device='0,1(1:0)',
-                                 reported_location=('Enclosure 0, '
-                                                    'Slot 1(Connector 0)'),
-                                 reported_esd='2,0(0:0)',
-                                 vendor='HGST',
-                                 model='HUC101860CSS200',
-                                 firmware='AD02',
-                                 serial_number='0BH67UPD',
-                                 world_wide_name='5000CCA07D43BC7B',
-                                 reserved_size='956312 KB',
-                                 used_size='571392 MB',
-                                 unused_size='64 KB',
-                                 total_size='572325 MB',
-                                 write_cache='Enabled (write-back)',
-                                 fru='None',
-                                 s_m_a_r_t='No',
-                                 s_m_a_r_t_warnings='0',
-                                 power_state='Full rpm',
-                                 supported_power_states='Full rpm,\
-                                 Powered off',
-                                 ssd='No',
-                                 temperature='45 C/ 113 F'),
+            arcconf.PhysicalDisk(ID='0 0',
+                                 ControllerID='1',
+                                 Type='SAS',
+                                 Size='558.91 GB'),
+            arcconf.PhysicalDisk(ID='0 1',
+                                 ControllerID='1',
+                                 Type='SAS',
+                                 Size='558.91 GB'),
         ]
 
         self.hardware.get_boot_info = mock.Mock()
@@ -481,3 +378,4 @@ class TestArcconfHardwareManager(base.IronicAgentTest):
                          hardware_info['interfaces'])
         self.assertEqual(self.hardware.get_boot_info(),
                          hardware_info['boot'])
+
