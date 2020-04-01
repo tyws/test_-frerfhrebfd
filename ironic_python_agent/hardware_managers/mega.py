@@ -149,7 +149,10 @@ class MegaHardwareManager(hardware.GenericHardwareManager):
     def delete_configuration(self, node, ports):
 
         LOG.info('Begin to delete configuration')
-        cmd = '%s -CfgLdDel -LAll -a0' % MEGACLI
+        cmd = '%s -CfgLdDel -LAll -aAll' % MEGACLI
+        report, _e = utils.execute(cmd, shell=True)
+
+        cmd = '%s -CfgForeign -Clear -aAll' % MEGACLI
         report, _e = utils.execute(cmd, shell=True)
         return
 
